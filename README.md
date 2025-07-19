@@ -1,5 +1,7 @@
 # loopfuse
 
+[Demo video.](https://www.loom.com/share/6608654209db4c2b82d50c57f05bb685?sid=b09bb05f-cee9-46ee-82d7-a693760cd65a)
+
 A tile-based compiler that generates fused Triton kernels from scratch.
 
 By mirroring the underlying optimisation ideas in FlashAttention, `loopfuse` can codegen efficient Triton kernels for a whole range of attention variants.
