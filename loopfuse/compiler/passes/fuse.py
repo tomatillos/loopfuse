@@ -209,24 +209,28 @@ def can_move_blocking_statements(
     stmts_before_fuse: list[ir.Node] = []
     stmts_after_fuse: list[ir.Node] = []
 
-    def get_edit_tile_names(node: ir.Node) -> set[str]:
-        return {_x[0] for _x in find_loads(node).keys()} | {
-            _x[0] for _x in find_stores(node).keys()
-        }
+    def get_load_tile_names(node: ir.Node) -> set[str]:
+        return {_x[0] for _x in find_loads(node).keys()}
+
+    def get_store_tile_names(node: ir.Node) -> set[str]:
+        return {_x[0] for _x in find_stores(node).keys()}
 
     # for now, ban any loads/stores, can deal with that later if needed
     loop1_vars = get_node_variable_names(loop1)
-    loop1_edit_tiles = get_edit_tile_names(loop1)
+    loop1_stores = get_store_tile_names(loop1)
     loop2_vars = get_node_variable_names(loop2)
     for stmt in statements:
-        stmt_edit_tiles = get_edit_tile_names(stmt)
+        if stmt_loads := get_store_tile_names(stmt):
+            logging.debug(f"Can't move blocking statements: stmt has stores: {stmt_loads}")
+            return None
+        stmt_loads = get_load_tile_names(stmt)
         stmt_vars = get_node_variable_names(stmt)
-        if stmt_edit_tiles:
-            # only handle the case where we move the stmt before loop1
-            if loop1_edit_tiles.isdisjoint(stmt_edit_tiles):
+        if stmt_loads:
+            # only does case where we move the stmt before loop1, stmt is a load, and doesn't conflict with loop1 stores
+            if loop1_stores.isdisjoint(stmt_loads):
                 stmts_before_fuse.append(stmt)
             else:
-                logging.debug("Can't move blocking statements: stmt has loads/stores")
+                logging.debug("Can't move blocking statements: stmt has loads")
                 return None
         elif loop1_vars.isdisjoint(stmt_vars):
             stmts_before_fuse.append(stmt)

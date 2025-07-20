@@ -436,7 +436,49 @@ def test_paged_gqa_decoding(B, Hq, S, D, dtype):
         return scores @ V
 
     prg_str = loopfuse_fn(Q, K_cache, K_block_table, V_cache, V_block_table)
+    
 
+def test_double_k():
+
+    @torch.compile(backend=loopfuse_backend, dynamic=True)
+    def fn(Q, K, K2, V):
+        QK1 = Q @ K.transpose(-2, -1) * (Q.shape[-1] ** -0.5)
+        QK2 = Q @ K2.transpose(-2, -1) * (Q.shape[-1] ** -0.5)
+        QK = QK1 + QK2
+        return QK
+        # masked_attn = torch.ops.loopfuse.causal_mask(QK)
+        # scores = torch.softmax(masked_attn, dim=-1)
+        # return scores @ V
+
+    B, H, S, D =  8, 32, 1024, 128
+    dtype = torch.bfloat16
+    Q = torch.randn(B, H, S, D, dtype=dtype)
+    K = torch.randn(B, H, S, D, dtype=dtype)
+    K2 = torch.randn(B, H, S, D, dtype=dtype)
+    V = torch.randn(B, H, S, D, dtype=dtype)
+    torch._dynamo.mark_static(Q, 3)
+    torch._dynamo.mark_dynamic(Q, 2)
+    prg_str = fn(Q, K,K2, V)
+    print(prg_str.code)
+
+
+def test_attention_exp_V(B, H, S, D):
+    def fn(Q, K, V):
+        QK = torch.sin(Q) @ torch.cos(K).transpose(-2, -1) * (Q.shape[-1] ** -0.5)
+        masked_attn = torch.ops.loopfuse.causal_mask(QK)
+        scores = torch.softmax(masked_attn, dim=-1)
+        return scores @ torch.exp(V)
+
+    dtype = torch.bfloat16
+    Q = torch.randn(B, H, S, D, dtype=dtype)
+    K = torch.randn(B, H, S, D, dtype=dtype)
+    V = torch.randn(B, H, S, D, dtype=dtype)
+    torch._dynamo.mark_static(Q, 3)
+    torch._dynamo.mark_dynamic(Q, 2)
+    compiled_fn = torch.compile(fn, backend=loopfuse_backend, dynamic=True)
+
+    prg_str = compiled_fn(Q, K, V)
+    print(prg_str.code)
 
 if __name__ == "__main__":
     B, H, S, D = 8, 32, 1024, 128
@@ -449,7 +491,7 @@ if __name__ == "__main__":
     # test_attention_explicit_softmax(B, H, S, D)
     # test_MLA(B, H, S, D)
     # test_decoding(B, H, S, D)
-    test_gqa_decoding(B, H, S, D)
+    # test_gqa_decoding(B, H, S, D)
     # test_attention_softcap(B, H, S, D)
     # test_attention_sliding_mask(B, H, S, D)
     # test_add()
@@ -461,3 +503,5 @@ if __name__ == "__main__":
     # test_fuse_matmul_matmul(1024, 1024, 1024)
     # test_gqa_softcap_sliding_mask(B, H, S, D)
     # test_paged_gqa_decoding(B, H, S, D, torch.bfloat16)
+    # test_double_k()
+    test_attention_exp_V(B, H, S, D)

@@ -144,6 +144,15 @@ torch_func_map = {
     torch.ops.aten.pow.Tensor_Scalar: pow_helper,
 }
 
+inplace_unary_ops = {
+    torch.ops.aten.exp.default: "exp",
+    torch.ops.aten.exp2.default: "exp2",
+    torch.ops.aten.log.default: "log",
+    torch.ops.aten.tanh.default: "tanh",
+    torch.ops.aten.sin.default: "sin",
+    torch.ops.aten.cos.default: "cos",
+    torch.ops.aten.relu.default: "relu",
+}
 
 def lookup_torch_func(_func):
     if _func in torch_func_map:
@@ -277,9 +286,16 @@ def loopfuse_compiler(
             self.parser.env[node.name] = shape[_dim]
 
         def handle_default(self, node: torch.fx.Node, _args, _kwargs):
+            # TODO: add way more things to the inline op stack
+            if node.target in inplace_unary_ops:
+                transform = TensorTransform(TransformType.UNARY_OP, _args[0].current_shape, extra={"op": inplace_unary_ops[node.target]})
+                self.parser.env[node.name] = self.parser.create_transformed_tiling(_args[0], transform)
+                return
+
             create_ir_func = lookup_torch_func(node.target)
             output_name = f"output_{self.parser.tmpvar_counter}"
             self.parser.tmpvar_counter += 1
+            # torch does annoying views before bmms, hack to ignore the last viewop
             ignore_last_viewop = node.target == torch.ops.aten.bmm.default
             for arg in _args:
                 if isinstance(arg, TiledTensor) and arg.tiling is None:

@@ -56,15 +56,19 @@ def broadcast_shapes(
     shape1: tuple[ir.Node, ...], shape2: tuple[ir.Node, ...]
 ) -> tuple[ir.Node, ...]:
     """Broadcasts two shapes (torch/numpy style)."""
+
+    def eq_1(x):
+        return x == 1 or x == ir.Constant(1) or x == ir.SymInt("CONST_1")
+
     rev1 = shape1[::-1]
     rev2 = shape2[::-1]
     result: list[ir.Node] = []
     for i in range(max(len(rev1), len(rev2))):
         dim1 = rev1[i] if i < len(rev1) else ir.Constant(1)
         dim2 = rev2[i] if i < len(rev2) else ir.Constant(1)
-        if dim1 == 1:
+        if eq_1(dim1):
             result.append(dim2)
-        elif dim2 == 1:
+        elif eq_1(dim2):
             result.append(dim1)
         elif dim1 == dim2:
             result.append(dim1)

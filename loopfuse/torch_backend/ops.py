@@ -13,6 +13,7 @@ class TransformType(Enum):
     EXPAND = "expand"
     TRANSPOSE = "transpose"
     CLONE = "clone"
+    UNARY_OP = "unary_op"
 
 
 @dataclass
@@ -144,9 +145,13 @@ def create_load(
     dim_names = list(tiledtensor.tiling.dim_names)
     order = list(tiledtensor.tiling.order)
     index = list(tup_index)
+    post_op_stack: list[ir.UnaryOp] = [] # todo: generalize!
 
     for transform_ix in range(len(tiledtensor.transforms) - 1, -1, -1):
         transform = tiledtensor.transforms[transform_ix]
+        if transform.type == TransformType.UNARY_OP:
+            post_op_stack.append(transform.extra["op"])
+            continue
         if (
             in_matmul
             and transform_ix == len(tiledtensor.transforms) - 1
@@ -330,7 +335,10 @@ def create_load(
         paged_metadata=tiledtensor.paged_metadata,
     )
 
-    return ir.Load(tiling, ir.Index(tuple(index)), other)
+    out_node = ir.Load(tiling, ir.Index(tuple(index)), other)
+    for op in reversed(post_op_stack):
+        out_node = ir.UnaryOp(op, out_node)
+    return out_node
 
 
 def build_matmul(

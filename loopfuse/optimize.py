@@ -46,6 +46,7 @@ def optimize(program: ir.Block) -> ir.Block:
         fusion_status = FusionStatus.INIT
         while fusion_status != FusionStatus.NO_CHANGE:
             program, fusion_status = recursively_fuse(program)
+            logging.debug(f"----\n{program}\n----")
 
         # Apply other passes
         program = cleanup_passes.eliminate_store_load(program)

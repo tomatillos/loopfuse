@@ -1,6 +1,6 @@
 # loopfuse
 
-[Demo video.](https://www.loom.com/share/6608654209db4c2b82d50c57f05bb685?sid=b09bb05f-cee9-46ee-82d7-a693760cd65a)
+[Demo video.](https://www.loom.com/share/0d491fee18cb459da598e6a99cf37185?sid=d578d626-34b7-4723-97d0-d642c9b0e096)
 
 A tile-based compiler that generates fused Triton kernels from scratch.
 
